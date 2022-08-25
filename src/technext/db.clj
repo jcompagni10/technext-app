@@ -24,12 +24,14 @@
   (with-open [r (io/reader path)]
     (->> (line-seq r)
          (map clojure.edn/read-string)
-         (partition-all 1000)
-         (run! (fn [chunk]
+         (partition-all 5000)
+         (pmap (fn [chunk]
                  (println "start chunk size:" (count chunk))
-                 (time (d/transact *conn* chunk))
+                 (time @(d/transact *conn* chunk))
                  (println "chunk")
-))))
+                 ))
+         (doall)
+         ))
 
 
   (println "DB Load complete"))
@@ -37,17 +39,18 @@
 
 
 (defn init-db [& [db-uri*]]
-  (when (d/create-database db-uri)
-    (create-schema *conn*)
-    (load-edn-to-db "./resources/private/patents.edn")
-    (load-edn-to-db "./resources/private/keywords.edn"))
+  (d/create-database db-uri)
+  ;; (create-schema *conn*)
+  ;; (load-edn-to-db "./resources/private/patents.edn")
+  ;; (load-edn-to-db "./resources/private/keywords.edn")
   (def ^:dynamic *conn* (d/connect db-uri)))
 
 (defn tokens->tx [tokens id]
   (->> tokens
        (map (fn [t]
               {:keyword/token t
-               :keyword/docs [[:patent/id id]]}))))
+               :keyword/docs [[:patent/id id]]
+               :keyword/doc-ids [id]}))))
 
 (defn index-patent-tx [{:keys [patent_text patent_id]}]
   (let [tokens (parser/string->tokens patent_text)]
@@ -61,16 +64,16 @@
        (group-by :keyword/token)
        (map (fn [[kw tokens]]
               {:keyword/token kw
-               :keyword/docs (mapcat :keyword/docs tokens)}))))
+               :keyword/docs [:keyword/docs tokens]
+               :keyword/doc-ids [:keyword/doc-ids tokens]}))))
 
 ;;NOTE: This is not used in the production version, instead we store the resulting transactions and load them upon startup
 (defn data->txes [path]
-  (let [data (u/csv->map path)
+  (let [data (->> (u/csv->map path))
         parsed-data (->> data
                          (pmap (fn [patent] (index-patent-tx patent))))
         token-txes (->> parsed-data
-                        (mapcat :tokens)
-                        merge-tokens)
+                        (mapcat :tokens))
         patent-txes (->> parsed-data
                          (map :patent))]
 

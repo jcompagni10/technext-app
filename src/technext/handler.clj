@@ -28,6 +28,12 @@
   (page
     [:p (str "Search Time: " (:time results) " msecs")]
     [:p (str (count (:result results))) " Matches"]
+    [:h2 "Samples: "]
+    [:div (->> (:samples results)
+               (map (fn [{:keys [patent/text patent/id]}]
+                      [:div [:h4 id]
+                       [:p text]])))]
+    [:h2 "Results:"]
     [:div (->> (:result results)
                (map (fn [patent-id]
                       [:div [:a {:href (str "/patent/" patent-id)} patent-id]])))]))
@@ -44,11 +50,13 @@
 
   (GET "/results" [:as req]
        (let [search (get-in req [:query-params "search"])
-             results (search/lookup-keyword (d/db *conn*) search)]
+             results (->> (search/lookup-keyword (d/db *conn*) search)
+                          (search/get-sample-docs (d/db *conn*))
+                          )]
          (results-page results)))
 
   (GET "/patent/:id" [id]
-       (let [patent (search/lookup-by-id (d/db *conn*) (clojure.edn/read-string id))]
+       (let [patent (search/lookup-by-id (d/db *conn*) id)]
          (patent-page patent))))
 
 

@@ -6,6 +6,7 @@
              :db/cardinality :db.cardinality/one
              :db/doc "Text of a patent"}
             {:db/ident :patent/id
+             :db/index true
              :db/unique :db.unique/identity
              :db/valueType :db.type/string
              :db/cardinality :db.cardinality/one
@@ -22,4 +23,10 @@
             {:db/ident :keyword/docs
              :db/valueType :db.type/ref
              :db/cardinality :db.cardinality/many
-             :db/doc "Keyword token"}])
+             :db/doc "Ref to keyword doc"}
+
+            {:db/ident :keyword/doc-ids
+             :db/index true
+             :db/valueType :db.type/string
+             :db/cardinality :db.cardinality/many
+             :db/doc "Patent IDs"}])
